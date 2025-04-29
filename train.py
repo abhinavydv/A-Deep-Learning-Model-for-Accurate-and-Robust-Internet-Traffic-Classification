@@ -3,19 +3,17 @@ from torch.optim import SGD
 
 from modules import *
 from datasets import tfc2016
-
-
 class MyMonitor(TrainingMonitor):
     def on_updated(self, trainer: Trainer, epoch: int, loss: float, result: ResultCompound):
         if epoch % 100 == 0:
             print(f"Epoch {epoch}: loss {loss * 100}%, {result.input_data.target[0]}->{result.output.max(1, keepdim=True)[1][0].item()}.")
 
     def on_finished(self, trainer: Trainer, epoch: int):
-        trainer.get_network().save(f"models/{CONFIG().CURRENT.get('group_name', must_exist=True)}_model.pth")
-        trainer.get_optimizer().save(f"models/{CONFIG().CURRENT.get('group_name', must_exist=True)}_optimizer.pth")
+        trainer.get_network().save(f"models2/{CONFIG().CURRENT.get('group_name', must_exist=True)}_model.pth")
+        trainer.get_optimizer().save(f"models2/{CONFIG().CURRENT.get('group_name', must_exist=True)}_optimizer.pth")
 
 
-def train(batch_size: str, learning_rate: str, batches: str, group_name: str, my_network: nn.Module = CNN()):
+def train(batch_size: str, learning_rate: str, batches: str, group_name: str, dataset, my_network: nn.Module = CNN()):
     my_config = new_config("train.cfg")
     my_config.set("batch_size", batch_size)
     my_config.set("learning_rate", learning_rate)
@@ -24,7 +22,7 @@ def train(batch_size: str, learning_rate: str, batches: str, group_name: str, my
     CONFIG().CURRENT = my_config
 
     num_batches = my_config.get("batches", must_exist=True, required_type=int)
-    dataset = tfc2016.TFC2016Image("data/img_train", 28).shuffle()
+
     my_dataloader = tfc2016.ClassificationDataloader(
         dataset,
         batch_size=my_config.get("batch_size", True, required_type=int),
@@ -44,77 +42,86 @@ def train(batch_size: str, learning_rate: str, batches: str, group_name: str, my
     # my_trainer = TrainerDataUtils.limit_losses(my_trainer, 0.1)
     print(TrainerDataUtils.analyse(my_trainer))
     gn = CONFIG().CURRENT.get('group_name', must_exist=True)
-    draw(my_trainer, 1280, 720).title(gn).save(f"results/{gn}_loss.png").show()
+    draw(my_trainer, 1280, 720).title(gn).save(f"results2/{gn}_loss.png").show()
 
+    my_tester = Tester(my_dataloader)
+    my_tester.set_network(network_container)
+    my_tester.test(num_batches, monitor=MyMonitor())
+    print(TrainerDataUtils.analyse(my_tester))
+    draw(my_tester, 1280, 720).title(gn).save(f"test_results/{gn}_test.png").show()
 
-if __name__ == '__main__':
-    tasks = [
-        [64, 0.1, 2000],
-        [64, 0.15, 2000],
-        [64, 0.05, 2000],
-        [64, 0.5, 2000],
-        [64, 0.01, 2000],
-        [128, 0.1, 2000],
-        [128, 0.15, 2000],
-        [128, 0.05, 2000],
-        [128, 0.5, 2000],
-        [128, 0.01, 2000],
-        [32, 0.1, 2000],
-        [32, 0.15, 2000],
-        [32, 0.05, 2000],
-        [32, 0.5, 2000],
-        [32, 0.01, 2000],
-        [64, 0.1, 8000],
-        [64, 0.15, 8000],
-        [64, 0.05, 8000],
-        [64, 0.5, 8000],
-        [64, 0.01, 8000],
-        [128, 0.1, 8000],
-        [128, 0.15, 8000],
-        [128, 0.05, 8000],
-        [128, 0.5, 8000],
-        [128, 0.01, 8000],
-        [32, 0.1, 8000],
-        [32, 0.15, 8000],
-        [32, 0.05, 8000],
-        [32, 0.5, 8000],
-        [32, 0.01, 8000],
+tasks = [
+    [64, 0.1, 2000],
+    [64, 0.15, 2000],
+    [64, 0.05, 2000],
+    [64, 0.5, 2000],
+    [64, 0.01, 2000],
+    [128, 0.1, 2000],
+    [128, 0.15, 2000],
+    [128, 0.05, 2000],
+    [128, 0.5, 2000],
+    [128, 0.01, 2000],
+    [32, 0.1, 2000],
+    [32, 0.15, 2000],
+    [32, 0.05, 2000],
+    [32, 0.5, 2000],
+    [32, 0.01, 2000],
+    [64, 0.1, 8000],
+    [64, 0.15, 8000],
+    [64, 0.05, 8000],
+    [64, 0.5, 8000],
+    [64, 0.01, 8000],
+    [128, 0.1, 8000],
+    [128, 0.15, 8000],
+    [128, 0.05, 8000],
+    [128, 0.5, 8000],
+    [128, 0.01, 8000],
+    [32, 0.1, 8000],
+    [32, 0.15, 8000],
+    [32, 0.05, 8000],
+    [32, 0.5, 8000],
+    [32, 0.01, 8000],
 
-        [64, 0.1, 2000],
-        [64, 0.15, 2000],
-        [64, 0.05, 2000],
-        [64, 0.5, 2000],
-        [64, 0.01, 2000],
-        [128, 0.1, 2000],
-        [128, 0.15, 2000],
-        [128, 0.05, 2000],
-        [128, 0.5, 2000],
-        [128, 0.01, 2000],
-        [32, 0.1, 2000],
-        [32, 0.15, 2000],
-        [32, 0.05, 2000],
-        [32, 0.5, 2000],
-        [32, 0.01, 2000],
-        [64, 0.1, 8000],
-        [64, 0.15, 8000],
-        [64, 0.05, 8000],
-        [64, 0.5, 8000],
-        [64, 0.01, 8000],
-        [128, 0.1, 8000],
-        [128, 0.15, 8000],
-        [128, 0.05, 8000],
-        [128, 0.5, 8000],
-        [128, 0.01, 8000],
-        [32, 0.1, 8000],
-        [32, 0.15, 8000],
-        [32, 0.05, 8000],
-        [32, 0.5, 8000],
-        [32, 0.01, 8000],
-    ]
-    i = 0
-    for task in tasks:
-        i += 1
-        if 1 <= i < 31:
-            train(str(task[0]), str(task[1]), str(task[2]), f"G{i}")
-        elif 31 <= i < 61:
-            train(str(task[0]), str(task[1]), str(task[2]), f"G{i}", LeNet5())
+    [64, 0.1, 2000],
+    [64, 0.15, 2000],
+    [64, 0.05, 2000],
+    [64, 0.5, 2000],
+    [64, 0.01, 2000],
+    [128, 0.1, 2000],
+    [128, 0.15, 2000],
+    [128, 0.05, 2000],
+    [128, 0.5, 2000],
+    [128, 0.01, 2000],
+    [32, 0.1, 2000],
+    [32, 0.15, 2000],
+    [32, 0.05, 2000],
+    [32, 0.5, 2000],
+    [32, 0.01, 2000],
+    [64, 0.1, 8000],
+    [64, 0.15, 8000],
+    [64, 0.05, 8000],
+    [64, 0.5, 8000],
+    [64, 0.01, 8000],
+    [128, 0.1, 8000],
+    [128, 0.15, 8000],
+    [128, 0.05, 8000],
+    [128, 0.5, 8000],
+    [128, 0.01, 8000],
+    [32, 0.1, 8000],
+    [32, 0.15, 8000],
+    [32, 0.05, 8000],
+    [32, 0.5, 8000],
+    [32, 0.01, 8000],
+]
+print("Loading dataset")
+dataset = tfc2016.TFC2016("data/pcap", 28).shuffle()
+print("Dataset loaded")
+
+dataset.get(0).cpu().unpack()[0].shape
+i = 0
+for task in tasks:
+    i += 1
+    if 1 <= i < 31:
+        train(str(task[0]), str(task[1]), str(task[2]), f"G{i}", dataset)
+    elif 31 <= i < 61:
+        train(str(task[0]), str(task[1]), str(task[2]), f"G{i}", dataset, LeNet5())

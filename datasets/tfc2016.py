@@ -6,24 +6,36 @@ from torch import Tensor
 from random import shuffle
 from os.path import exists
 from os import listdir, mkdir
-from scapy.plist import PacketList
-from scapy.all import rdpcap as rdpcap
+# from scapy.plist import PacketList
+# from scapy.all import rdpcap as rdpcap
+import dpkt
 from torchvision.transforms import Compose, Resize, ToTensor
 
 
 class Pcap(object):
-    def __init__(self, packets: PacketList, name: Union[str, None] = None):
-        self.packets: PacketList = packets
+    def __init__(self, packets: list[bytes], name: Union[str, None] = None):
+        self.packets = packets
         self.name: Union[str, None] = name
 
     def __len__(self) -> int:
         return len(self.packets)
 
     def raw_list(self) -> list[bytes]:
-        r = []
-        for packet in self.packets:
-            r.append(packet.original)
-        return r
+        # r = []
+        # for packet in self.packets:
+        #     r.append(packet.original)
+        # return r
+        return self.packets
+
+def rdpcap(filename):
+    packet_bytes = []
+    
+    with open(filename, 'rb') as f:
+        pcap = dpkt.pcap.Reader(f)
+        for ts, buf in pcap:
+            packet_bytes.append(buf)
+            
+    return packet_bytes
 
 
 def read_pcap(filename: Union[str, PathLike], name: Union[str, None] = None):
@@ -47,11 +59,14 @@ def fill_padding(array: list, width: int) -> np.ndarray:
 
 
 def bytes2array(content: bytes, width: int) -> np.ndarray:
-    hex_content = binascii.hexlify(content)
-    fh = [int(hex_content[i: i + 2], 16) for i in range(0, len(hex_content), 2)]
-    fh = fill_padding(fh, width)
-    fh = np.reshape(fh, (width, width))
-    fh = np.uint8(fh)
+    # hex_content = binascii.hexlify(content)
+    # fh = [int(hex_content[i: i + 2], 16) for i in range(0, len(hex_content), 2)]
+    # fh = fill_padding(fh, width)
+    while len(content) < width * width:
+        content += content
+    content = content[:width * width]
+
+    fh = np.reshape(np.frombuffer(content, dtype=np.uint8), (width, width))
     return fh
 
 
@@ -104,10 +119,12 @@ class TFC2016(Dataset):
         self.dc_list: list[DataCompound] = []
 
         for filename in listdir(self.src):
+            print(f"reading pcap {filename}")
             self.group_list.append(read_pcap(f"{self.src}/{filename}", filename[:-5].lower()))
         for group in self.group_list:
-            transform = Compose([Resize((width, width)), ToTensor()])
-            self.dc_list += [DataCompound(transform(array2img(bytes2array(raw, width))).unsqueeze(0), Tensor([name2id(group.name)])) for raw in
+            print(f"reading group {group.name}")
+            transform = Compose([ToTensor()])
+            self.dc_list += [DataCompound(transform(bytes2array(raw, width)), Tensor([name2id(group.name)])) for raw in
                              group.raw_list()]
 
     def __len__(self) -> int:
@@ -115,6 +132,10 @@ class TFC2016(Dataset):
 
     def cut(self, i: slice) -> Self:
         raise RuntimeError("Doesn't support cutting.")
+
+    def shuffle(self) -> Self:
+        shuffle(self.dc_list)
+        return self
 
     def get(self, i: int) -> DataCompound:
         return self.dc_list[i]
