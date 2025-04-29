@@ -3,6 +3,9 @@ from torch.optim import SGD
 
 from modules import *
 from datasets import tfc2016
+
+import time
+
 class MyMonitor(TrainingMonitor):
     def on_updated(self, trainer: Trainer, epoch: int, loss: float, result: ResultCompound):
         if epoch % 100 == 0:
@@ -38,17 +41,22 @@ def train(batch_size: str, learning_rate: str, batches: str, group_name: str, da
     my_trainer.set_network(network_container)
     my_trainer.set_loss_function(loss_function_container)
     my_trainer.set_optimizer(optimizer_container)
+    
+    train_start = time.time()
     my_trainer.train(num_batches, monitor=MyMonitor())
+    train_stop = time.time()
     # my_trainer = TrainerDataUtils.limit_losses(my_trainer, 0.1)
     print(TrainerDataUtils.analyse(my_trainer))
     gn = CONFIG().CURRENT.get('group_name', must_exist=True)
     draw(my_trainer, 1280, 720).title(gn).save(f"results2/{gn}_loss.png").show()
+    print("Trainig Time:", train_stop - train_start)
 
     my_tester = Tester(my_dataloader)
     my_tester.set_network(network_container)
-    my_tester.test(num_batches, monitor=MyMonitor())
-    print(TrainerDataUtils.analyse(my_tester))
-    draw(my_tester, 1280, 720).title(gn).save(f"test_results/{gn}_test.png").show()
+    test_start = time.time()
+    my_tester.test(num_batches)
+    test_stop = time.time()
+    print("tersting time:", test_stop - test_start)
 
 tasks = [
     [64, 0.1, 2000],
